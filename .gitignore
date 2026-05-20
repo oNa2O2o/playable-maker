@@ -1,0 +1,18 @@
+# 视频文件
+*.mp4
+*.mov
+*.avi
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# 上传目录
+playable-editor/static/uploads/
+playable-editor/output/
+playable-editor/configs/
+
+# 临时文件
+*.tmp
+*.log

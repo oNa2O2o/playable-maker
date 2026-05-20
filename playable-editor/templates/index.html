@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Playable Ad Editor</title>
+  <link rel="stylesheet" href="/static/editor.css">
+  <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+</head>
+<body>
+
+<!-- 顶部栏 -->
+<div class="topbar">
+  <div class="topbar-left">
+    <div class="topbar-title">Playable Ad Editor <span id="versionTag" style="font-size:11px;color:var(--text-secondary);font-weight:400;margin-left:6px;"></span></div>
+    <div class="config-selector">
+      <select id="configSelect">
+        <option value="">-- 新建配置 --</option>
+      </select>
+      <button class="btn btn-primary btn-sm" id="btnSaveConfig" title="保存当前配置">保存</button>
+      <button class="btn btn-outline btn-sm" id="btnSaveAsConfig" title="另存为新配置">另存为</button>
+      <button class="btn btn-danger btn-sm" id="btnDeleteConfig" title="删除当前配置" style="display:none">删除</button>
+    </div>
+  </div>
+  <div class="topbar-actions">
+    <button class="btn btn-outline btn-sm" id="btnCheckUpdate" title="检查更新">检查更新</button>
+    <button class="btn btn-outline btn-sm" id="btnImportJson">导入配置</button>
+    <button class="btn btn-outline btn-sm" id="btnExportJson">导出配置</button>
+  </div>
+</div>
+
+<!-- 主布局 -->
+<div class="main-layout">
+  <!-- 左侧编辑面板 -->
+  <div class="edit-panel" id="editPanel">
+
+    <!-- 1. 基础配置 -->
+    <div class="panel-section" id="sec-basic">
+      <div class="panel-header" onclick="toggleSection('sec-basic')">
+        <h3>📋 基础配置</h3>
+        <span class="arrow">▼</span>
+      </div>
+      <div class="panel-body">
+        <div class="form-group">
+          <label>应用名称</label>
+          <input type="text" id="cfgAppName" value="MiraiMind" data-key="appName">
+        </div>
+        <div class="form-group">
+          <label>包名</label>
+          <input type="text" id="cfgPackageName" value="com.immomo.miraimind" data-key="packageName">
+        </div>
+        <div class="form-group">
+          <label>Android 商店链接</label>
+          <input type="url" id="cfgStoreAndroid" value="https://play.google.com/store/apps/details?id=com.immomo.miraimind" data-key="storeUrl.android">
+        </div>
+        <div class="form-group">
+          <label>iOS 商店链接</label>
+          <input type="url" id="cfgStoreIos" value="https://apps.apple.com/us/app/miraimind-real-otaku-energy/id6502377840" data-key="storeUrl.ios">
+        </div>
+        <div class="form-group">
+          <label>AI 角色名</label>
+          <input type="text" id="cfgAiName" value="Eric" data-key="aiName">
+        </div>
+        <div class="form-group">
+          <label>UI 界面语言（导出时键盘、提示等文字的语言）</label>
+          <select id="cfgLocale" data-key="locale">
+            <option value="EN">English (EN)</option>
+            <option value="JP">日本語 (JP)</option>
+            <option value="TC">繁體中文 (TC)</option>
+            <option value="CN">简体中文 (CN)</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- 2. 资源管理 -->
+    <div class="panel-section" id="sec-assets">
+      <div class="panel-header" onclick="toggleSection('sec-assets')">
+        <h3>🎨 资源管理</h3>
+        <span class="arrow">▼</span>
+      </div>
+      <div class="panel-body">
+        <div class="form-group">
+          <label>Logo URL</label>
+          <div class="upload-area">
+            <input type="text" id="cfgLogoUrl" value="https://oversea.hellogroupcdn.com/s1/u/ibjjeahbh/loveRo/LOGO2.png" data-key="assets.logoUrl">
+            <label>上传<input type="file" accept="image/*" data-upload-target="cfgLogoUrl"></label>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>背景视频 URL</label>
+          <div class="upload-area">
+            <input type="text" id="cfgVideoUrl" value="https://res.cloudinary.com/dcpbty7lj/video/upload/v1772263917/ComfyUI_00077__oto6qd.mp4" data-key="assets.videoUrl">
+            <label>上传<input type="file" accept="video/*" data-upload-target="cfgVideoUrl"></label>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 3. 对话消息管理 -->
+    <div class="panel-section" id="sec-messages">
+      <div class="panel-header" onclick="toggleSection('sec-messages')">
+        <h3>💬 对话消息</h3>
+        <span class="arrow">▼</span>
+      </div>
+      <div class="panel-body">
+        <div class="message-list" id="messageList">
+          <!-- JS 动态生成 -->
+        </div>
+        <div style="margin-top: 10px; display: flex; gap: 8px;">
+          <button class="btn btn-primary btn-sm" id="btnAddAiMsg">+ AI消息</button>
+          <button class="btn btn-success btn-sm" id="btnAddUserTrigger">+ 用户触发</button>
+          <button class="btn btn-outline btn-sm" id="btnAddUserEnd">+ 结束触发</button>
+        </div>
+        <p style="font-size:11px; color:var(--text-secondary); margin-top:8px;">
+          拖拽排序 · 点击✏编辑 · user_trigger = 等待用户点发送 · user_trigger_end = 用户发送后进入结束页
+        </p>
+      </div>
+    </div>
+
+    <!-- 4. 结束页配置 -->
+    <div class="panel-section" id="sec-endcard">
+      <div class="panel-header" onclick="toggleSection('sec-endcard')">
+        <h3>🏁 结束页</h3>
+        <span class="arrow">▼</span>
+      </div>
+      <div class="panel-body">
+        <div class="form-group">
+          <label>标题</label>
+          <input type="text" id="cfgEndTitle" value="Discover Your AI Soulmate" data-key="endcard.title">
+        </div>
+        <div class="form-group">
+          <label>描述（换行用 \n）</label>
+          <textarea id="cfgEndDesc" data-key="endcard.desc">Start meaningful conversations
+with Eric and more AI companions</textarea>
+        </div>
+        <div class="form-group">
+          <label>CTA 按钮文案</label>
+          <input type="text" id="cfgEndCta" value="Download" data-key="endcard.ctaText">
+        </div>
+      </div>
+    </div>
+
+    <!-- 5. 主题颜色 -->
+    <div class="panel-section collapsed" id="sec-theme">
+      <div class="panel-header" onclick="toggleSection('sec-theme')">
+        <h3>🎭 主题颜色</h3>
+        <span class="arrow">▼</span>
+      </div>
+      <div class="panel-body">
+        <div class="form-group">
+          <label>发送按钮渐变</label>
+          <input type="text" id="cfgSendBtnGradient" value="linear-gradient(135deg, #F472B6, #60A5FA, #4ADE80, #FBBF24)" data-key="theme.sendBtnGradient">
+        </div>
+        <div class="form-group">
+          <label>AI 气泡背景</label>
+          <input type="text" id="cfgAiBubbleBg" value="linear-gradient(135deg, rgba(0,0,0,0.7), rgba(0,0,0,0.6))" data-key="theme.aiBubbleBg">
+        </div>
+        <div class="form-group">
+          <label>用户气泡渐变</label>
+          <input type="text" id="cfgUserBubbleGradient" value="linear-gradient(135deg, #4ADE80, #60A5FA)" data-key="theme.userBubbleGradient">
+        </div>
+        <div class="form-group">
+          <label>背景遮罩色</label>
+          <input type="text" id="cfgBgOverlay" value="rgba(0,0,0,0.4)" data-key="theme.bgOverlay">
+        </div>
+      </div>
+    </div>
+
+    <!-- 6. 时间参数 -->
+    <div class="panel-section collapsed" id="sec-timing">
+      <div class="panel-header" onclick="toggleSection('sec-timing')">
+        <h3>⏱ 时间参数</h3>
+        <span class="arrow">▼</span>
+      </div>
+      <div class="panel-body">
+        <div class="form-row">
+          <div class="form-group">
+            <label>Typing 时长 (ms)</label>
+            <input type="number" id="cfgTypingDuration" value="500" data-key="timing.typingDuration">
+          </div>
+          <div class="form-group">
+            <label>消息间隔 (ms)</label>
+            <input type="number" id="cfgMessageGap" value="200" data-key="timing.messageGap">
+          </div>
+        </div>
+        <div class="form-group">
+          <label>自动跳转延迟 (ms)</label>
+          <input type="number" id="cfgAutoEndDelay" value="2000" data-key="timing.autoEndDelay">
+        </div>
+      </div>
+    </div>
+
+    <!-- 7. 对话框布局 -->
+    <div class="panel-section collapsed" id="sec-layout">
+      <div class="panel-header" onclick="toggleSection('sec-layout')">
+        <h3>📐 对话框布局</h3>
+        <span class="arrow">▼</span>
+      </div>
+      <div class="panel-body">
+        <div class="form-group slider-group">
+          <label>头部顶部偏移 <span class="slider-val" id="valHeaderTop">50</span>px</label>
+          <input type="range" id="cfgHeaderTop" min="10" max="120" value="50" data-key="layout.headerTop">
+        </div>
+        <div class="form-group slider-group">
+          <label>聊天区顶部 <span class="slider-val" id="valChatTop">110</span>px</label>
+          <input type="range" id="cfgChatTop" min="60" max="200" value="110" data-key="layout.chatTop">
+        </div>
+        <div class="form-group slider-group">
+          <label>聊天区底部 <span class="slider-val" id="valChatBottom">280</span>px</label>
+          <input type="range" id="cfgChatBottom" min="150" max="400" value="280" data-key="layout.chatBottom">
+        </div>
+        <div class="form-group slider-group">
+          <label>聊天区内边距 <span class="slider-val" id="valChatPadding">20</span>px</label>
+          <input type="range" id="cfgChatPadding" min="4" max="40" value="20" data-key="layout.chatPadding">
+        </div>
+        <div class="form-group slider-group">
+          <label>气泡最大宽度 <span class="slider-val" id="valBubbleMaxWidth">75</span>%</label>
+          <input type="range" id="cfgBubbleMaxWidth" min="40" max="100" value="75" data-key="layout.bubbleMaxWidth">
+        </div>
+        <div class="form-group slider-group">
+          <label>气泡内边距 <span class="slider-val" id="valBubblePadding">12</span>px</label>
+          <input type="range" id="cfgBubblePadding" min="4" max="24" value="12" data-key="layout.bubblePadding">
+        </div>
+        <div class="form-group slider-group">
+          <label>气泡圆角 <span class="slider-val" id="valBubbleBorderRadius">18</span>px</label>
+          <input type="range" id="cfgBubbleBorderRadius" min="0" max="30" value="18" data-key="layout.bubbleBorderRadius">
+        </div>
+        <div class="form-group slider-group">
+          <label>气泡字号 <span class="slider-val" id="valBubbleFontSize">14</span>px</label>
+          <input type="range" id="cfgBubbleFontSize" min="10" max="22" value="14" data-key="layout.bubbleFontSize">
+        </div>
+        <div class="form-group slider-group">
+          <label>气泡透明度 <span class="slider-val" id="valBubbleOpacity">1.0</span></label>
+          <input type="range" id="cfgBubbleOpacity" min="0" max="100" value="100" data-key="layout.bubbleOpacity" data-scale="0.01">
+        </div>
+        <div class="form-group slider-group">
+          <label>消息间距 <span class="slider-val" id="valMessageSpacing">16</span>px</label>
+          <input type="range" id="cfgMessageSpacing" min="4" max="40" value="16" data-key="layout.messageSpacing">
+        </div>
+        <div class="form-group slider-group">
+          <label>发送者字号 <span class="slider-val" id="valSenderFontSize">12</span>px</label>
+          <input type="range" id="cfgSenderFontSize" min="8" max="18" value="12" data-key="layout.senderFontSize">
+        </div>
+        <div class="form-group slider-group">
+          <label>头像大小 <span class="slider-val" id="valAvatarSize">44</span>px</label>
+          <input type="range" id="cfgAvatarSize" min="24" max="72" value="44" data-key="layout.avatarSize">
+        </div>
+      </div>
+    </div>
+
+    <!-- 8. 背景音乐 -->
+    <div class="panel-section collapsed" id="sec-bgm">
+      <div class="panel-header" onclick="toggleSection('sec-bgm')">
+        <h3>🎵 背景音乐</h3>
+        <span class="arrow">▼</span>
+      </div>
+      <div class="panel-body">
+        <div class="form-group">
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+            <input type="checkbox" id="cfgBgmEnabled" data-key="bgm.enabled">
+            启用背景音乐（Web Audio API 生成）
+          </label>
+        </div>
+        <div class="form-group">
+          <label>音乐风格</label>
+          <select id="cfgBgmStyle" data-key="bgm.style" style="width:100%;padding:8px;background:var(--bg-secondary);color:var(--text-primary);border:1px solid var(--border);border-radius:6px;">
+            <option value="ambient">氛围 Ambient — 柔和低频和弦</option>
+            <option value="dreamy">梦幻 Dreamy — 更空灵轻柔</option>
+            <option value="upbeat">轻快 Upbeat — 明亮活泼</option>
+          </select>
+        </div>
+        <p style="font-size:11px;color:var(--text-secondary);margin-top:4px;">用户首次点击/触摸时自动播放，纯代码生成无需音频文件</p>
+      </div>
+    </div>
+
+    <!-- 9. 导出 -->
+    <div class="panel-section" id="sec-export">
+      <div class="panel-header" onclick="toggleSection('sec-export')">
+        <h3>📦 导出</h3>
+        <span class="arrow">▼</span>
+      </div>
+      <div class="panel-body">
+        <div class="export-grid">
+          <button class="export-btn" data-platform="tiktok">TikTok</button>
+          <button class="export-btn" data-platform="google">Google</button>
+          <button class="export-btn" data-platform="facebook">Facebook</button>
+        </div>
+        <button class="btn btn-primary btn-block" id="btnExportAll">一键导出全部平台</button>
+        <div style="margin-top: 8px; display: flex; align-items: center; gap: 8px;">
+          <button class="btn btn-outline btn-sm" id="btnSelectDir" style="white-space: nowrap;">📁 选择输出目录</button>
+          <span id="selectedDirName" style="font-size: 12px; color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">未选择目录</span>
+        </div>
+        <div style="margin-top: 10px;">
+          <label style="font-size: 12px; color: var(--text-secondary); display: block; margin-bottom: 6px;">本地化导出（勾选后额外生成翻译版本）</label>
+          <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+            <label style="font-size: 12px; cursor: pointer; display: flex; align-items: center; gap: 4px;">
+              <input type="checkbox" class="locale-checkbox" value="JP"> 日本語 (JP)
+            </label>
+            <label style="font-size: 12px; cursor: pointer; display: flex; align-items: center; gap: 4px;">
+              <input type="checkbox" class="locale-checkbox" value="EN"> English (EN)
+            </label>
+            <label style="font-size: 12px; cursor: pointer; display: flex; align-items: center; gap: 4px;">
+              <input type="checkbox" class="locale-checkbox" value="TC"> 繁體中文 (TC)
+            </label>
+          </div>
+        </div>
+        <div id="exportResults" class="export-result"></div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- 右侧预览区 -->
+  <div class="preview-panel">
+    <div class="phone-frame">
+      <iframe id="previewFrame" src="/preview"></iframe>
+    </div>
+    <div class="preview-controls">
+      <button class="btn btn-primary" id="btnPlayPreview">▶ 播放预览</button>
+      <button class="btn btn-outline" id="btnResetPreview">↻ 重置</button>
+    </div>
+  </div>
+</div>
+
+<!-- 消息编辑弹窗 -->
+<div class="msg-edit-overlay" id="msgEditOverlay">
+  <div class="msg-edit-dialog">
+    <h4>编辑消息</h4>
+    <div class="form-group">
+      <label>类型</label>
+      <select id="editMsgType">
+        <option value="ai">AI 消息</option>
+        <option value="user_trigger">用户触发（等待发送）</option>
+        <option value="user_trigger_end">结束触发（发送后进入结束页）</option>
+      </select>
+    </div>
+    <div class="form-group" id="editMsgContentGroup">
+      <label>消息内容</label>
+      <textarea id="editMsgContent" rows="3"></textarea>
+    </div>
+    <div class="form-group">
+      <label>前一条消息后延迟 (ms)</label>
+      <input type="number" id="editMsgDelay" value="500">
+    </div>
+    <div class="dialog-actions">
+      <button class="btn btn-outline" id="btnCancelEditMsg">取消</button>
+      <button class="btn btn-primary" id="btnSaveEditMsg">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- 更新弹窗 -->
+<div class="msg-edit-overlay" id="updateOverlay">
+  <div class="msg-edit-dialog" style="max-width:440px;">
+    <h4 id="updateTitle">检查更新</h4>
+    <div id="updateContent" style="font-size:13px;color:var(--text-secondary);margin-bottom:16px;">
+      正在检查...
+    </div>
+    <div class="dialog-actions" id="updateActions">
+      <button class="btn btn-outline" onclick="document.getElementById('updateOverlay').classList.remove('active')">关闭</button>
+    </div>
+  </div>
+</div>
+
+<!-- 隐藏的文件 input 用于导入 -->
+<input type="file" id="importJsonInput" accept=".json" style="display:none">
+
+<script src="/static/editor.js"></script>
+</body>
+</html>
